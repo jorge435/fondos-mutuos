@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS products (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(10) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    description VARCHAR(200),
+    price DECIMAL(10,2) NOT NULL,
+    category VARCHAR(100) NOT NULL,
+    reg_date TIMESTAMP NOT NULL,
+    mod_date TIMESTAMP,
+    state BOOLEAN NOT NULL
+);

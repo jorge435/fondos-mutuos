@@ -1,0 +1,51 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.4.2'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+group = 'com.scotiabank'
+version = '0.0.1-SNAPSHOT'
+description = 'Prueba Técnica - Fondos mutuos'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+	maven { url = 'https://repo.spring.io/snapshot' }
+}
+
+dependencies {
+	// Web Reactiva y Validaciones
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+	// Persistencia Reactiva (R2DBC)
+	implementation 'org.springframework.boot:spring-boot-starter-data-r2dbc'
+
+	// Drivers de BD (H2 se maneja aquí, no necesita starter aparte para consola)
+	runtimeOnly 'com.h2database:h2'
+	runtimeOnly 'io.r2dbc:r2dbc-h2'
+
+	// Boilerplate (Lombok)
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+
+	// Testing (Solo necesitas el starter-test, ya trae JUnit 5 y Mockito)
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'io.projectreactor:reactor-test' // Vital para probar Mono/Flux
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}

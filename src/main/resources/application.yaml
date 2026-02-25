@@ -1,0 +1,16 @@
+server:
+  port: 8020
+
+spring:
+  application:
+    name: fondos-service
+  r2dbc:
+    url: r2dbc:h2:mem:///fondosmutuos;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+  sql:
+    init:
+      mode: always
+  h2:
+    console:
+      enabled: true
