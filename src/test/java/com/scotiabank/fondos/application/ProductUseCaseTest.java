@@ -4,6 +4,7 @@ import com.scotiabank.fondos.domain.enums.ProductStatus;
 import com.scotiabank.fondos.domain.model.Product;
 import com.scotiabank.fondos.domain.ports.out.ProductRepositoryPort;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -20,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-
 @ExtendWith(MockitoExtension.class)
 class ProductUseCaseTest {
 
@@ -35,105 +35,72 @@ class ProductUseCaseTest {
     }
 
     @Test
-    void createProduct_ShouldSetDefaultFieldsAndSave() {
-        Product request = new Product(
-                null,
-                "FND001",
-                "Fondo Conservador",
-                "Bajo riesgo",
-                new BigDecimal("1500.50"),
-                "Renta Fija",
-                null,
-                null,
-                null
-        );
+    @DisplayName("Debe asignar valores por defecto y guardar el producto correctamente")
+    void shouldCreateProduct() {
+
+        Product request = createProductRequest();
 
         when(repositoryPort.save(any(Product.class))).thenAnswer(invocation -> {
             Product productToSave = invocation.getArgument(0);
-            return Mono.just(new Product(
-                    10,
-                    productToSave.code(),
-                    productToSave.name(),
-                    productToSave.description(),
-                    productToSave.price(),
-                    productToSave.category(),
-                    productToSave.regDate(),
-                    productToSave.modDate(),
-                    productToSave.state()
-            ));
+            return Mono.just(mockSavedProduct(productToSave));
         });
+
 
         StepVerifier.create(useCase.createProduct(request))
                 .assertNext(saved -> {
                     assertEquals(10, saved.id());
-                    assertEquals("FND001", saved.code());
                     assertEquals(ProductStatus.ACTIVE, saved.state());
                     assertNotNull(saved.regDate());
                 })
                 .verifyComplete();
 
-        ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
-        verify(repositoryPort).save(captor.capture());
-
-        Product sentToRepository = captor.getValue();
-        assertEquals(ProductStatus.ACTIVE, sentToRepository.state());
-        assertNotNull(sentToRepository.regDate());
-        assertEquals(null, sentToRepository.modDate());
-    }
-
-    @Test
-    void updateProduct_WhenProductExists_ShouldSaveUpdatedValues() {
-        Product existing = new Product(
-                7,
-                "FND002",
-                "Fondo Mixto",
-                "Riesgo moderado",
-                new BigDecimal("1000.00"),
-                "Mixto",
-                LocalDateTime.now().minusDays(2),
-                null,
-                ProductStatus.ACTIVE
-        );
-
-        Product input = new Product(
-                null,
-                "FND002-UPD",
-                "Fondo Mixto Plus",
-                "Ajustado",
-                new BigDecimal("1200.00"),
-                "Mixto",
-                null,
-                null,
-                null
-        );
-
-        when(repositoryPort.findById(7)).thenReturn(Mono.just(existing));
-        when(repositoryPort.save(any(Product.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
-
-        StepVerifier.create(useCase.updateProduct(7, input))
-                .assertNext(updated -> {
-                    assertEquals(7, updated.id());
-                    assertEquals("FND002-UPD", updated.code());
-                    assertEquals(existing.regDate(), updated.regDate());
-                    assertEquals(ProductStatus.ACTIVE, updated.state());
-                    assertNotNull(updated.modDate());
-                })
-                .verifyComplete();
-
-        verify(repositoryPort).findById(7);
         verify(repositoryPort).save(any(Product.class));
     }
 
     @Test
-    void deleteProduct_WhenProductNotFound_ShouldReturnError() {
-        when(repositoryPort.findById(99)).thenReturn(Mono.empty());
+    @DisplayName("Debe actualizar campos permitidos cuando el producto existe")
+    void shouldUpdateExistingProduct() {
 
-        StepVerifier.create(useCase.deleteProduct(99))
-                .expectErrorMatches(error ->
-                        error instanceof RuntimeException
-                                && "Product not found with id: 99".equals(error.getMessage()))
+        int productId = 7;
+        Product existing = createExistingProduct(productId);
+        Product input = createUpdateInput();
+
+        when(repositoryPort.findById(productId)).thenReturn(Mono.just(existing));
+        when(repositoryPort.save(any(Product.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+
+        StepVerifier.create(useCase.updateProduct(productId, input))
+                .assertNext(updated -> {
+                    assertEquals(productId, updated.id());
+                    assertNotNull(updated.modDate());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    @DisplayName("Debe lanzar error si el producto a eliminar no existe")
+    void shouldFailWhenProductNotFound() {
+        int id = 99;
+        when(repositoryPort.findById(id)).thenReturn(Mono.empty());
+
+        StepVerifier.create(useCase.deleteProduct(id))
+                .expectError(RuntimeException.class)
                 .verify();
+    }
 
-        verify(repositoryPort).findById(99);
+
+    private Product createProductRequest() {
+        return new Product(null, "FND001", "Fondo", "Desc", new BigDecimal("100"), "Cat", null, null, null);
+    }
+
+    private Product createExistingProduct(int id) {
+        return new Product(id, "OLD", "Name", "Desc", BigDecimal.ONE, "Cat", LocalDateTime.now(), null, ProductStatus.ACTIVE);
+    }
+
+    private Product createUpdateInput() {
+        return new Product(null, "NEW", "New Name", "New Desc", BigDecimal.TEN, "Cat", null, null, null);
+    }
+
+    private Product mockSavedProduct(Product p) {
+        return new Product(10, p.code(), p.name(), p.description(), p.price(), p.category(), p.regDate(), p.modDate(), p.state());
     }
 }

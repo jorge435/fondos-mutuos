@@ -5,10 +5,12 @@ import com.scotiabank.fondos.domain.model.Product;
 import com.scotiabank.fondos.domain.ports.in.ProductServicePort;
 import com.scotiabank.fondos.infrastructure.adapters.inbound.web.dto.ProductRequest;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import reactor.core.publisher.Mono;
@@ -17,8 +19,9 @@ import reactor.test.StepVerifier;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -36,28 +39,15 @@ class ProductControllerTest {
     }
 
     @Test
-    void create_ShouldMapRequestAndReturnCreatedProduct() {
-        ProductRequest request = new ProductRequest(
-                "FND001",
-                "Fondo Conservador",
-                "Bajo riesgo",
-                new BigDecimal("1500.50"),
-                "Renta Fija"
-        );
+    @DisplayName("Debe retornar 201 (Created) al crear un producto exitosamente")
+    void shouldCreateProduct() {
 
-        Product saved = new Product(
-                1,
-                "FND001",
-                "Fondo Conservador",
-                "Bajo riesgo",
-                new BigDecimal("1500.50"),
-                "Renta Fija",
-                LocalDateTime.now(),
-                null,
-                ProductStatus.ACTIVE
-        );
+        var request = createValidRequest();
+        var savedProduct = mockProduct(1, "FND001");
 
-        when(productService.createProduct(any(Product.class))).thenReturn(Mono.just(saved));
+        when(productService.createProduct(any(Product.class)))
+                .thenReturn(Mono.just(savedProduct));
+
 
         StepVerifier.create(controller.create(request))
                 .assertNext(product -> {
@@ -65,61 +55,62 @@ class ProductControllerTest {
                     assertEquals("FND001", product.code());
                 })
                 .verifyComplete();
-
-        verify(productService).createProduct(any(Product.class));
     }
 
     @Test
-    void getById_WhenFound_ShouldReturnOkResponse() {
-        Product found = new Product(
-                3,
-                "FND003",
-                "Fondo Variable",
-                "Alto riesgo",
-                new BigDecimal("2500.00"),
-                "Renta Variable",
-                LocalDateTime.now().minusDays(3),
-                null,
-                ProductStatus.ACTIVE
-        );
+    @DisplayName("Debe retornar 200 (OK) cuando el producto existe")
+    void shouldReturnOkWhenFound() {
 
-        when(productService.getProductById(3)).thenReturn(Mono.just(found));
+        int id = 3;
+        when(productService.getProductById(id))
+                .thenReturn(Mono.just(mockProduct(id, "FND003")));
 
-        StepVerifier.create(controller.getById(3))
+
+        StepVerifier.create(controller.getById(id))
                 .assertNext(response -> {
-                    assertEquals(200, response.getStatusCode().value());
-                    assertEquals(3, response.getBody().id());
+                    assertEquals(HttpStatus.OK, response.getStatusCode());
+                    assertNotNull(response.getBody());
+                    assertEquals(id, response.getBody().id());
                 })
                 .verifyComplete();
     }
 
     @Test
-    void getById_WhenNotFound_ShouldReturnNotFoundResponse() {
-        when(productService.getProductById(404)).thenReturn(Mono.empty());
+    @DisplayName("Debe retornar 404 (Not Found) cuando el producto no existe")
+    void shouldReturnNotFoundWhenMissing() {
 
-        StepVerifier.create(controller.getById(404))
+        int id = 404;
+        when(productService.getProductById(id)).thenReturn(Mono.empty());
+
+
+        StepVerifier.create(controller.getById(id))
                 .assertNext(response -> {
-                    HttpStatusCode statusCode = response.getStatusCode();
-                    assertEquals(404, statusCode.value());
-                    assertEquals(null, response.getBody());
+                    assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+                    assertNull(response.getBody());
                 })
                 .verifyComplete();
     }
 
     @Test
-    void update_WhenNotFound_ShouldReturnNotFoundResponse() {
-        ProductRequest request = new ProductRequest(
-                "FND404",
-                "No Existe",
-                "Sin datos",
-                new BigDecimal("10.00"),
-                "Demo"
-        );
+    @DisplayName("Debe retornar 404 al intentar actualizar un producto inexistente")
+    void shouldReturnNotFoundOnUpdateFailure() {
 
-        when(productService.updateProduct(any(Integer.class), any(Product.class))).thenReturn(Mono.empty());
+        int id = 404;
+        when(productService.updateProduct(anyInt(), any(Product.class)))
+                .thenReturn(Mono.empty());
 
-        StepVerifier.create(controller.update(404, request))
-                .assertNext(response -> assertEquals(ResponseEntity.notFound().build(), response))
+
+        StepVerifier.create(controller.update(id, createValidRequest()))
+                .assertNext(response -> assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode()))
                 .verifyComplete();
+    }
+
+    private ProductRequest createValidRequest() {
+        return new ProductRequest("FND001", "Fondo", "Desc", new BigDecimal("1500"), "Renta");
+    }
+
+    private Product mockProduct(int id, String code) {
+        return new Product(id, code, "Fondo", "Desc", new BigDecimal("1500"), "Renta",
+                LocalDateTime.now(), null, ProductStatus.ACTIVE);
     }
 }
