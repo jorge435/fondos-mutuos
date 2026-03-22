@@ -40,9 +40,11 @@ public class ProductController {
     public Mono<Product> create(@Valid @RequestBody ProductRequest request) {
         log.info("Rest request to create product: {}", request.code());
         return Mono.just(request)
+                // Entra un Request, sale un Product. Todo ocurre en memoria.
                 .map(req -> new Product(null, req.code(), req.name(), req.description(),
                         req.price(), req.category(), null, null, null))
                 .flatMap(productService::createProduct);
+        // Entra un Product, se dispara una tarea asíncrona (DB), y flatMap espera el resultado.
     }
 
     @GetMapping("/{id}")
